@@ -1,15 +1,15 @@
-import { HttpClient } from './httpClient';
+import { HttpClient } from './httpClient'
 
 /**
  * Fetch and log a request
  * @param {Request} request
  */
 export async function handleRequest(request: Request) {
-  const redirectLocation = 'https://github.com/shalzz/ethereum-worker';
-  const url = new URL(ORIGIN_URL);
-  const headers = new Headers();
-  headers.append('content-type', 'application/json;charset=UTF-8');
-  const allowedMethods = [
+  const redirectLocation = 'https://syscoin.org/about'
+  const url = new URL(ORIGIN_URL)
+  const headers = new Headers()
+  headers.append('content-type', 'application/json;charset=UTF-8')
+  const cacheableMethods = [
     'web3_clientVersion',
     'web3_sha3',
     'net_version',
@@ -49,7 +49,7 @@ export async function handleRequest(request: Request) {
     'eth_submitHashrate',
     'eth_getProof',
     'eth_feeHistory',
-  ];
+  ]
 
   const httpClient = new HttpClient(url, <RequestInit>{
     method: 'POST',
@@ -58,23 +58,34 @@ export async function handleRequest(request: Request) {
     cf: {
       cacheEverything: true,
     },
-  });
+  })
 
-  if (request.method != "POST") {
-    return Response.redirect(redirectLocation, 301);
+  if (request.method != 'POST') {
+    return Response.redirect(redirectLocation, 301)
   }
 
-  const body = await request.json();
+  const body = await request.json()
 
-  if (!body.method || !allowedMethods.includes(body.method)) {
-    let response = {
-      id: body.id,
-      jsonrpc:"2.0",
-      error:{"code":-32601,"message":`The method ${body.method} does not exist/is not available`}
+  if (Array.isArray(body)) {
+    // Call without cache
+    const response = httpClient.forwardWithoutCache('', body)
+    return response
+  } else {
+    if (!body.method) {
+      let response = {
+        id: body.id,
+        jsonrpc: '2.0',
+        error: {
+          code: -32601,
+          message: `The method ${body.method} does not exist/is not available`,
+        },
+      }
+      return new Response(JSON.stringify(response), { status: 200 })
+    } else if (!cacheableMethods.includes(body.method)) {
+      const response = httpClient.forwardWithoutCache('', body)
+      return response
     }
-    return new Response(JSON.stringify(response), { status: 200 });
+    // Cache for 7 days (604800) and serve stale content for 1 min.
+    return httpClient.fetchWeb3('', body, 604800, 60)
   }
-
-  // Cache for 7 days (604800) and serve stale content for 1 min.
-  return httpClient.fetchWeb3('', body, 604800, 60);
 }

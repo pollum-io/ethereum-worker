@@ -24,6 +24,19 @@ export class HttpClient {
     this.cache = cache || (<any>caches).default
   }
 
+  public async forwardWithoutCache(
+    path: string,
+    body: any,
+    init?: RequestInit,
+  ): Promise<Response> {
+    const cacheHeader = this.cacheHeader(-1, -1)
+    let response = await this.fetchOrigin(
+      path,
+      Object.assign({ body: JSON.stringify(body) }, init || {}),
+    )
+    return response
+  }
+
   /**
    * Fetch a web3 request with id `1` to maximise cache hits.
    *
@@ -40,51 +53,53 @@ export class HttpClient {
     staleTtl?: number,
     init?: RequestInit,
   ): Promise<Response> {
-
     // Store the original id from the request
     // and replace it with a const id
-    const id = body.id;
-    const method = body.method;
-    const params = body.params;
+    const id = body.id
+    const method = body.method
+    const params = body.params
 
-    body.id = 1;
+    body.id = 1
 
-    let cacheHeader;
-    let defaultBlock;
-    let isWriteRequest = false;
+    let cacheHeader
+    let defaultBlock
+    let isWriteRequest = false
 
     switch (method) {
       // Should always be from the latest block
-      case "eth_sendRawTransaction":
-        isWriteRequest = true;
-      case "eth_blockNumber":
-      case "eth_estimateGas":
-      case "eth_feeHistory":
-      case "eth_gasPrice":
-        defaultBlock = "latest";
-        break;
+      case 'eth_sendRawTransaction':
+        isWriteRequest = true
+      case 'eth_blockNumber':
+      case 'eth_estimateGas':
+      case 'eth_feeHistory':
+      case 'eth_gasPrice':
+        defaultBlock = 'latest'
+        break
       // Extract the blocknumber / label
-      case "eth_getBalance":
-      case "eth_getCode":
-      case "eth_getTransactionCount":
-      case "eth_getBalance":
-      case "eth_call":
-        defaultBlock = params[1];
-        break;
-      case "eth_getStorageAt":
-        defaultBlock = params[2];
-        break;
-    };
+      case 'eth_getBalance':
+      case 'eth_getCode':
+      case 'eth_getTransactionCount':
+      case 'eth_getBalance':
+      case 'eth_call':
+        defaultBlock = params[1]
+        break
+      case 'eth_getStorageAt':
+        defaultBlock = params[2]
+        break
+      default:
+        defaultBlock = 'latest'
+        break
+    }
 
     switch (defaultBlock) {
-      case "earliest":
-      case "latest":
-      case "pending":
-        cacheHeader = this.cacheHeader(-1, -1);
-        break;
+      case 'earliest':
+      case 'latest':
+      case 'pending':
+        cacheHeader = this.cacheHeader(-1, -1)
+        break
       default:
-        cacheHeader = this.cacheHeader(cacheTtl, staleTtl);
-    };
+        cacheHeader = this.cacheHeader(cacheTtl, staleTtl)
+    }
 
     // In case of a chain re-org, `staleTtl` specifies how long we serve
     // the stale content via the "stale-while-revalidate" headers
@@ -92,14 +107,14 @@ export class HttpClient {
       path,
       cacheHeader,
       Object.assign({ body: JSON.stringify(body) }, init || {}),
-      isWriteRequest ? WRITE_URL || "" : ""
+      isWriteRequest ? WRITE_URL || '' : '',
     )
 
     // Restore the id to the response object
-    let resBody = await response.json();
-    resBody.id = id;
+    let resBody = await response.json()
+    resBody.id = id
 
-    return new Response(JSON.stringify(resBody), response);
+    return new Response(JSON.stringify(resBody), response)
   }
 
   /**
@@ -112,7 +127,7 @@ export class HttpClient {
     path: string,
     cacheHeader: string,
     init?: RequestInit,
-    url?: string
+    url?: string,
   ): Promise<Response> {
     const key = await this.cacheKey(path, init)
 
@@ -120,10 +135,7 @@ export class HttpClient {
     if (!response) {
       response = await this.fetchOrigin(path, init, url)
 
-      response.headers.set(
-        'Cache-control',
-        cacheHeader,
-      )
+      response.headers.set('Cache-control', cacheHeader)
       await this.cache.put(key, response.clone())
     }
 
@@ -139,7 +151,7 @@ export class HttpClient {
   private async fetchOrigin(
     path: string,
     init?: RequestInit,
-    url?: string
+    url?: string,
   ): Promise<Response> {
     path = new URL((url || this.url.toString()) + path).toString()
     init = this.initMerge(init)
@@ -203,7 +215,7 @@ export class HttpClient {
   private cacheHeader(cacheTtl?: number, staleTtl?: number): string {
     var cache = 'public'
 
-    if (!cacheTtl || !staleTtl) return cache;
+    if (!cacheTtl || !staleTtl) return cache
     if (cacheTtl < 0 && staleTtl < 0) cache = 'no-store'
     if (cacheTtl >= 0) cache += `, max-age=${cacheTtl}`
     if (staleTtl >= 0) cache += `, stale-while-revalidate=${staleTtl}`

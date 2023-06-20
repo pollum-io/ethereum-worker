@@ -1,9 +1,6 @@
 name = "ethereum-worker"
-type = "webpack"
-webpack_config = "webpack.config.js"
-
 workers_dev = true
-account_id = "e921f16c347adc83c0b29f1f758a860c"
-zone_id = ""
+account_id = "aa3990ce8e24d1a7bd034e609ccaaa92"
 route = ""
-vars = { ORIGIN_URL = "https://mainnet.infura.io/v3/a6d7aa03b97b431b891c71e7bc7e7ff8", WRITE_URL = "https://rpc.flashbots.net" }
+compatibility_date = "2023-06-12"
+vars = { ORIGIN_URL = "https://rpc.tanenbaum.io" }
