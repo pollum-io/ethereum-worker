@@ -1,3 +1,10 @@
+import { httpConfig } from '../config'
+import logger from '../utils/logger'
+import { URL } from 'url'
+import { Request, RequestInit, Response, fetch, Cache as ICache } from 'undici'
+import { Cache } from 'undici/lib/cache/cache.js'
+import { kConstruct } from 'undici/lib/cache/symbols.js'
+
 /**
  * HttpClient is a convience wrapper for doing common transforms,
  * such as injecting authentication headers, to fetch requests.
@@ -5,7 +12,7 @@
 export class HttpClient {
   private readonly url: URL
   private readonly init: RequestInit
-  private readonly cache: Cache
+  private readonly cache: ICache
 
   /**
    * Creates a new HttpClient.
@@ -14,26 +21,27 @@ export class HttpClient {
    * @param init initializer for requests, defaults to empty.
    * @param cache cache storage for requests, defaults to global.
    */
-  constructor(url: URL, init?: RequestInit, cache?: Cache) {
+  constructor(url: URL, init?: RequestInit, cache?: ICache) {
     if (!url) throw new TypeError('url is a required argument')
     this.url = url
 
     this.init = init || {}
+
     if (!this.init.headers) this.init.headers = {}
 
-    this.cache = cache || (<any>caches).default
+    this.cache = cache || (new Cache(kConstruct, []) as Cache)
   }
 
   public async forwardWithoutCache(
     path: string,
-    body: any,
+    body: BodyRequest,
     init?: RequestInit,
   ): Promise<Response> {
-    const cacheHeader = this.cacheHeader(-1, -1)
     let response = await this.fetchOrigin(
       path,
       Object.assign({ body: JSON.stringify(body) }, init || {}),
     )
+    logger.debug('response', response)
     return response
   }
 
@@ -69,7 +77,7 @@ export class HttpClient {
       // Should always be from the latest block
       case 'eth_sendRawTransaction':
         isWriteRequest = true
-      case 'eth_blockNumber':
+      // case 'eth_blockNumber':
       case 'eth_estimateGas':
       case 'eth_feeHistory':
       case 'eth_gasPrice':
@@ -77,9 +85,9 @@ export class HttpClient {
         break
       // Extract the blocknumber / label
       case 'eth_getBalance':
+      case 'eth_blockNumber':
       case 'eth_getCode':
       case 'eth_getTransactionCount':
-      case 'eth_getBalance':
       case 'eth_call':
         defaultBlock = params[1]
         break
@@ -103,11 +111,12 @@ export class HttpClient {
 
     // In case of a chain re-org, `staleTtl` specifies how long we serve
     // the stale content via the "stale-while-revalidate" headers
+    const init_ = Object.assign({ body: JSON.stringify(body) }, init || {})
     let response = await this.fetch(
       path,
       cacheHeader,
-      Object.assign({ body: JSON.stringify(body) }, init || {}),
-      isWriteRequest ? WRITE_URL || '' : '',
+      init_,
+      isWriteRequest ? httpConfig.writeUrl || '' : '',
     )
 
     // Restore the id to the response object
@@ -130,13 +139,16 @@ export class HttpClient {
     url?: string,
   ): Promise<Response> {
     const key = await this.cacheKey(path, init)
+    logger.debug(await this.cache.keys())
 
-    var response = await this.cache.match(key, { ignoreMethod: true })
+    let response = await this.cache.match(key, { ignoreMethod: true })
+    logger.debug('resp', response)
     if (!response) {
       response = await this.fetchOrigin(path, init, url)
 
       response.headers.set('Cache-control', cacheHeader)
-      await this.cache.put(key, response.clone())
+      response.headers.set('X-Cache-Date', new Date().toUTCString())
+      this.cache.put(key, response.clone())
     }
 
     return response
@@ -159,15 +171,15 @@ export class HttpClient {
     var response = await fetch(path, init)
 
     // FIXME: access sometimes redirects to a 200 login page when client credentials are invalid.
-    if (
-      response.redirected &&
-      new URL(response.url).hostname.endsWith('cloudflareaccess.com')
-    ) {
-      return new Response(
-        'client credentials rejected by cloudflare access',
-        response,
-      )
-    }
+    // if (
+    //   response.redirected &&
+    //   new URL(response.url).hostname.endsWith('cloudflareaccess.com')
+    // ) {
+    //   return new Response(
+    //     'client credentials rejected by cloudflare access',
+    //     response,
+    //   )
+    // }
 
     return new Response(response.body, response)
   }

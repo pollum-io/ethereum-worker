@@ -1,6 +1,0 @@
-name = "ethereum-worker"
-workers_dev = true
-account_id = "aa3990ce8e24d1a7bd034e609ccaaa92"
-route = ""
-compatibility_date = "2023-06-12"
-vars = { ORIGIN_URL = "https://rpc.tanenbaum.io" }
