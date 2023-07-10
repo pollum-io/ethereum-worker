@@ -1,3 +1,5 @@
+import NodeCache from 'node-cache'
+
 const cacheConfig = {
   cacheableMethods: [
     'web3_clientVersion',
@@ -40,6 +42,12 @@ const cacheConfig = {
     'eth_getProof',
     'eth_feeHistory',
   ],
+  cacheTtl: parseInt(process.env.CACHE_TTL) || 604800,
+  staleTtl: parseInt(process.env.STALE_TTL) || 60,
+  cache: new NodeCache({
+    stdTTL: parseInt(process.env.CACHE_TTL) || 604800,
+    checkperiod: parseInt(process.env.STALE_TTL) || 60,
+  }),
 }
 
 export default cacheConfig

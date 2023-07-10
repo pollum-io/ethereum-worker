@@ -1,19 +1,18 @@
 import { httpConfig } from '../config'
-import logger from '../utils/logger'
 import { URL } from 'url'
-import { Request, RequestInit, Response, fetch, Cache as ICache } from 'undici'
-import { Cache } from 'undici/lib/cache/cache.js'
-import { kConstruct } from 'undici/lib/cache/symbols.js'
+import NodeCache from 'node-cache'
+import axios, { AxiosRequestConfig, AxiosResponse } from 'axios'
+import { BodyRequest, CachedResponse } from '../@types/types'
+const crypto = require('node:crypto').webcrypto
 
 /**
- * HttpClient is a convience wrapper for doing common transforms,
+ * HttpClient is a convince wrapper for doing common transforms,
  * such as injecting authentication headers, to fetch requests.
  */
 export class HttpClient {
   private readonly url: URL
   private readonly init: RequestInit
-  private readonly cache: ICache
-
+  private readonly cache?: NodeCache
   /**
    * Creates a new HttpClient.
    *
@@ -21,48 +20,82 @@ export class HttpClient {
    * @param init initializer for requests, defaults to empty.
    * @param cache cache storage for requests, defaults to global.
    */
-  constructor(url: URL, init?: RequestInit, cache?: ICache) {
+  constructor(url: URL, init?: RequestInit, cache?: NodeCache) {
     if (!url) throw new TypeError('url is a required argument')
     this.url = url
 
     this.init = init || {}
 
-    if (!this.init.headers) this.init.headers = {}
+    this.cache = cache
 
-    this.cache = cache || (new Cache(kConstruct, []) as Cache)
+    if (!this.init.headers) this.init.headers = {}
   }
 
   public async forwardWithoutCache(
     path: string,
     body: BodyRequest,
-    init?: RequestInit,
-  ): Promise<Response> {
-    let response = await this.fetchOrigin(
-      path,
-      Object.assign({ body: JSON.stringify(body) }, init || {}),
-    )
-    logger.debug('response', response)
+    init?: AxiosRequestConfig,
+  ): Promise<AxiosResponse> {
+    path = new URL(httpConfig.originUrl + path).toString()
+
+    let response = await axios.post(path, body, init)
     return response
   }
 
-  /**
-   * Fetch a web3 request with id `1` to maximise cache hits.
-   *
-   * @param path required, the path to fetch, joined by the client url.
-   * @param body required, web3 post request body with id
-   * @param init initializer for the request, recursively merges with client initializer.
-   * @param cacheTtl number of seconds to cache the response.
-   * @param staleTtl number of seconds to serve the response stale.
-   */
+  private initMerge(
+    init?: Record<string, any>,
+  ): AxiosRequestConfig & { body: any } {
+    init = Object.assign({ headers: {} }, init || {})
+
+    for (var kv of Object.entries(this.init.headers)) {
+      init.headers[kv[0]] = kv[1]
+    }
+
+    return Object.assign(init, this.init) as any
+  }
+
+  private async generateCacheKey(
+    path: string,
+    init: Record<string, any>,
+  ): Promise<string> {
+    path = new URL(path, this.url).toString()
+    init = this.initMerge(init)
+
+    if (init.method != 'POST')
+      return JSON.stringify({
+        url: path,
+        method: init.method,
+        headers: init.headers,
+      })
+
+    const hash = await sha256(init.body)
+    const key = JSON.stringify({
+      url: `${path}/_/${hash}`,
+      method: 'GET',
+      headers: init.headers,
+    })
+
+    return key
+  }
+
+  private genCacheHeader(cacheTtl?: number, staleTtl?: number): string {
+    var cache = 'public'
+
+    if (!cacheTtl || !staleTtl) return cache
+    if (cacheTtl < 0 && staleTtl < 0) cache = 'no-store'
+    if (cacheTtl >= 0) cache += `, max-age=${cacheTtl}`
+    if (staleTtl >= 0) cache += `, stale-while-revalidate=${staleTtl}`
+
+    return cache
+  }
+
   public async fetchWeb3(
     path: string,
     body: any,
     cacheTtl?: number,
     staleTtl?: number,
-    init?: RequestInit,
-  ): Promise<Response> {
-    // Store the original id from the request
-    // and replace it with a const id
+    init?: Record<string, any>,
+  ): Promise<AxiosResponse> {
     const id = body.id
     const method = body.method
     const params = body.params
@@ -77,7 +110,7 @@ export class HttpClient {
       // Should always be from the latest block
       case 'eth_sendRawTransaction':
         isWriteRequest = true
-      // case 'eth_blockNumber':
+      case 'eth_blockNumber':
       case 'eth_estimateGas':
       case 'eth_feeHistory':
       case 'eth_gasPrice':
@@ -85,7 +118,6 @@ export class HttpClient {
         break
       // Extract the blocknumber / label
       case 'eth_getBalance':
-      case 'eth_blockNumber':
       case 'eth_getCode':
       case 'eth_getTransactionCount':
       case 'eth_call':
@@ -103,136 +135,53 @@ export class HttpClient {
       case 'earliest':
       case 'latest':
       case 'pending':
-        cacheHeader = this.cacheHeader(-1, -1)
+        cacheHeader = this.genCacheHeader(-1, -1)
         break
       default:
-        cacheHeader = this.cacheHeader(cacheTtl, staleTtl)
+        cacheHeader = this.genCacheHeader(cacheTtl, staleTtl)
     }
 
-    // In case of a chain re-org, `staleTtl` specifies how long we serve
-    // the stale content via the "stale-while-revalidate" headers
     const init_ = Object.assign({ body: JSON.stringify(body) }, init || {})
-    let response = await this.fetch(
-      path,
-      cacheHeader,
-      init_,
-      isWriteRequest ? httpConfig.writeUrl || '' : '',
-    )
+    let response = await this.fetch(path, cacheHeader, init_)
 
-    // Restore the id to the response object
-    let resBody = await response.json()
-    resBody.id = id
-
-    return new Response(JSON.stringify(resBody), response)
-  }
-
-  /**
-   * Fetch a path from the origin or cache.
-   *
-   * @param path required, the path to fetch, joined by the client url.
-   * @param init initializer for the request, recursively merges with client initializer.
-   */
-  public async fetch(
-    path: string,
-    cacheHeader: string,
-    init?: RequestInit,
-    url?: string,
-  ): Promise<Response> {
-    const key = await this.cacheKey(path, init)
-    logger.debug(await this.cache.keys())
-
-    let response = await this.cache.match(key, { ignoreMethod: true })
-    logger.debug('resp', response)
-    if (!response) {
-      response = await this.fetchOrigin(path, init, url)
-
-      response.headers.set('Cache-control', cacheHeader)
-      response.headers.set('X-Cache-Date', new Date().toUTCString())
-      this.cache.put(key, response.clone())
-    }
-
+    response.data.id = id
     return response
   }
 
-  /**
-   * Fetch a path directly from the origin.
-   *
-   * @param path required, the path to fetch, joined by the client url.
-   * @param init initializer for the request, recursively merges with client initializer.
-   */
-  private async fetchOrigin(
+  private async fetch(
     path: string,
-    init?: RequestInit,
-    url?: string,
-  ): Promise<Response> {
-    path = new URL((url || this.url.toString()) + path).toString()
+    cacheHeader: string,
+    init?: AxiosRequestConfig & { body: any },
+  ): Promise<AxiosResponse> {
+    const key = await this.generateCacheKey(path, init)
     init = this.initMerge(init)
 
-    var response = await fetch(path, init)
+    path = new URL(httpConfig.originUrl + path).toString()
+    const { body, ...init_ } = init
 
-    // FIXME: access sometimes redirects to a 200 login page when client credentials are invalid.
-    // if (
-    //   response.redirected &&
-    //   new URL(response.url).hostname.endsWith('cloudflareaccess.com')
-    // ) {
-    //   return new Response(
-    //     'client credentials rejected by cloudflare access',
-    //     response,
-    //   )
-    // }
+    if (this.cache?.has(key)) {
+      const cachedResponse: CachedResponse = this.cache.get(key)
+      return {
+        data: cachedResponse.body,
+        headers: cachedResponse.headers,
+        status: cachedResponse.status,
+      } as AxiosResponse
+    } else {
+      let response = await axios.post(path, body, init_)
 
-    return new Response(response.body, response)
-  }
+      response.headers['Cache-Control'] = cacheHeader
+      if (cacheHeader !== 'no-store') {
+        response.headers['X-Cache-Date'] = new Date().toUTCString()
+      }
 
-  /**
-   * Creates a new RequestInit for requests.
-   *
-   * @param init the initializer to merge into the client initializer.
-   */
-  private initMerge(init?: RequestInit): RequestInit {
-    init = Object.assign({ headers: {} }, init || {})
+      this.cache?.set(key, {
+        headers: response.headers,
+        body: response.data,
+        status: response.status,
+      })
 
-    for (var kv of Object.entries(this.init.headers)) {
-      init.headers[kv[0]] = kv[1]
+      return response
     }
-
-    return Object.assign(init, this.init)
-  }
-
-  /**
-   * Creates a cache key for a Request.
-   *
-   * @param path required, the resource path of the request.
-   * @param init the initializer for the request, defaults to empty.
-   */
-  private async cacheKey(path: string, init?: RequestInit): Promise<Request> {
-    path = new URL(path, this.url).toString()
-    init = this.initMerge(init)
-
-    if (init.method != 'POST') return new Request(path, init)
-
-    const hash = await sha256(init.body)
-    return new Request(`${path}/_/${hash}`, {
-      method: 'GET',
-      headers: init.headers,
-    })
-  }
-
-  /**
-   * Creates a Cache-control header for a Response.
-   *
-   * @param cacheTtl required, number of seconds to cache the response.
-   * @param staleTtl required, number of seconds to serve the response stale.
-   */
-  private cacheHeader(cacheTtl?: number, staleTtl?: number): string {
-    var cache = 'public'
-
-    if (!cacheTtl || !staleTtl) return cache
-    if (cacheTtl < 0 && staleTtl < 0) cache = 'no-store'
-    if (cacheTtl >= 0) cache += `, max-age=${cacheTtl}`
-    if (staleTtl >= 0) cache += `, stale-while-revalidate=${staleTtl}`
-
-    return cache
   }
 }
 

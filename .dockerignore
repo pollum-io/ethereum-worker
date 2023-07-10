@@ -1,0 +1,14 @@
+.git
+.github
+helm-chart
+dist
+node_modules
+test
+.gitignore
+.prettierrc
+.editorconfig
+docker-compose.yaml
+LICENSE.txt
+Dockerfile
+README.md
+yarn.error

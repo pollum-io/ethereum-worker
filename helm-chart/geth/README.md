@@ -18,16 +18,16 @@ on running another network, refer to [Geth's documentation](https://geth.ethereu
 
 ## Prerequisites
 
-* Kubernetes 1.8
-* Helm 3.x
+- Kubernetes 1.8
+- Helm 3.x
 
 ## Installing the Chart
 
 2. Install the chart as follows:
 
-    ```console
-    $ helm install --name my-release .
-    ```
+   ```console
+   $ helm install --name my-release .
+   ```
 
 ## Uninstalling the Chart
 
@@ -43,18 +43,18 @@ The command removes all the Kubernetes components associated with the chart and 
 
 The following table lists the configurable parameters of the vault chart and their default values.
 
-| Parameter                         | Description                                   | Default                               |
-|-----------------------------------|-----------------------------------------------|---------------------------------------|
-| `imagePullPolicy`                 | Container pull policy                         | `IfNotPresent`                        |
-| `nodeSelector`                    | Node labels for pod assignmen                 |                                       |
-| `geth.image.repository`           | geth container image to use                   | `ethereum/client-go`                  |
-| `geth.image.tag`                  | geth container image tag to deploy            | `v1.7.3`                              |
-| `geth.tx.replicaCount`            | geth transaction nodes replica count          | `2`                                   |
-| `geth.tx.service.type`            | k8s service type for geth transaction nodes   | `ClusterIP`                           |
-| `geth.tx.args.rpcapi`             | APIs offered over the HTTP-RPC interface      | `eth,net,web3`                        |
-| `geth.genesis.networkId`          | Ethereum network id                           | `98052`                               |
-| `geth.genesis.difficulty`         | Ethereum network difficulty                   | `0x0400`                              |
-| `geth.genesis.gasLimit`           | Ethereum network gas limit                    | `0x8000000`                         |
+| Parameter                 | Description                                 | Default              |
+| ------------------------- | ------------------------------------------- | -------------------- |
+| `imagePullPolicy`         | Container pull policy                       | `IfNotPresent`       |
+| `nodeSelector`            | Node labels for pod assignmen               |                      |
+| `geth.image.repository`   | geth container image to use                 | `ethereum/client-go` |
+| `geth.image.tag`          | geth container image tag to deploy          | `v1.7.3`             |
+| `geth.tx.replicaCount`    | geth transaction nodes replica count        | `2`                  |
+| `geth.tx.service.type`    | k8s service type for geth transaction nodes | `ClusterIP`          |
+| `geth.tx.args.rpcapi`     | APIs offered over the HTTP-RPC interface    | `eth,net,web3`       |
+| `geth.genesis.networkId`  | Ethereum network id                         | `98052`              |
+| `geth.genesis.difficulty` | Ethereum network difficulty                 | `0x0400`             |
+| `geth.genesis.gasLimit`   | Ethereum network gas limit                  | `0x8000000`          |
 
 Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example, to configure the networkid:
 
@@ -67,4 +67,3 @@ Alternatively, a YAML file that specifies the values for the above parameters ca
 ```console
 $ helm install geth -f values.yaml .
 ```
-

@@ -32,6 +32,7 @@ We have a demo worker running that you can use to quickly try out how it works a
 https://ethereum-worker.8bitlabs.workers.dev
 
 For example, query the `web3_clientVersion` using curl
+
 ```
 $ curl -d '{"method":"web3_clientVersion","params":[],"id":1,"jsonrpc":"2.0"}' https://ethereum-worker.8bitlabs.workers.dev
 ```
@@ -40,8 +41,8 @@ $ curl -d '{"method":"web3_clientVersion","params":[],"id":1,"jsonrpc":"2.0"}' h
 
 Cloudflare provides free modes of both the services we will be using.
 
-* [Free Argo tunnels][2]
-* [Free workers with worker.dev][3]
+- [Free Argo tunnels][2]
+- [Free workers with worker.dev][3]
 
 ## Install
 
@@ -110,11 +111,10 @@ capabilities of the Cloudflare network!
 ## Helm Charts
 
 If you are looking to quickly deploy an Ethereum client with Argo tunnels setup,
-we provide Helm Charts for deploying the Ethereum  clients `geth` and `parity`
+we provide Helm Charts for deploying the Ethereum clients `geth` and `parity`
 to a Kubernetes clusters with a Argo tunnel running as a side car model.
 
 See the `helm-chart` folder and chart specific `README.md` for more details.
-
 
 [1]: https://cloudflare-eth.com
 [2]: https://developers.cloudflare.com/argo-tunnel/trycloudflare/
