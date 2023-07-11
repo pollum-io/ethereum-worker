@@ -4,20 +4,6 @@ import { URL } from 'url'
 import { HttpClient } from '../lib/httpClient'
 import { AxiosResponse } from 'axios'
 
-export async function cacheStatus(req: Request, res: Response) {
-  if (!req.query?.token || req.query?.token !== httpConfig.adminCheckToken) {
-    return res.status(401).json({
-      id: 1,
-      jsonrpc: '2.0',
-      error: {
-        code: -32601,
-        message: `Unauthorized`,
-      },
-    })
-  }
-  res.status(200).json(cacheConfig.cache.getStats())
-}
-
 export async function cacheHandler(req: Request, res: Response) {
   const url = new URL(httpConfig.originUrl)
 

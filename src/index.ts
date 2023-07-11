@@ -4,10 +4,12 @@ import express, { NextFunction, json, Request, Response } from 'express'
 import cors from 'cors'
 import logger from './utils/logger'
 import helmet from 'helmet'
-import { cacheHandler, cacheStatus } from './handlers/cache'
+import { cacheHandler } from './handlers/cache'
 import filterBlacklist from './middlewares/contractBlackList'
 import wsMiddleware from './handlers/ws'
 import health from './handlers/health'
+import metricsMiddleware from './middlewares/metrics'
+import { getMetrics } from './handlers/metrics'
 
 const app = express()
 app.use(cors())
@@ -29,9 +31,9 @@ app.use(function(req, _res, next) {
 })
 
 app.get('/utils/health', health)
-app.get('/utils/cachestatus', cacheStatus)
+app.get('/utils/metrics', getMetrics)
 app.use('/wss', wsMiddleware)
-app.post('/', filterBlacklist, cacheHandler)
+app.post('/', metricsMiddleware, filterBlacklist, cacheHandler)
 
 app.use(function(_req, res) {
   const redirectLocation = 'https://syscoin.org/about'
