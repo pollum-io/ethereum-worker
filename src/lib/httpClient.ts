@@ -3,6 +3,7 @@ import { URL } from 'url'
 import NodeCache from 'node-cache'
 import axios, { AxiosRequestConfig, AxiosResponse } from 'axios'
 import { BodyRequest, CachedResponse } from '../@types/types'
+import logger from '../utils/logger'
 const crypto = require('node:crypto').webcrypto
 
 /**
@@ -13,6 +14,7 @@ export class HttpClient {
   private readonly url: URL
   private readonly init: RequestInit
   private readonly cache?: NodeCache
+  private readonly shortTtl: number = 30
   /**
    * Creates a new HttpClient.
    *
@@ -20,13 +22,19 @@ export class HttpClient {
    * @param init initializer for requests, defaults to empty.
    * @param cache cache storage for requests, defaults to global.
    */
-  constructor(url: URL, init?: RequestInit, cache?: NodeCache) {
+  constructor(
+    url: URL,
+    init?: RequestInit,
+    cache?: NodeCache,
+    shortTtl?: number,
+  ) {
     if (!url) throw new TypeError('url is a required argument')
     this.url = url
 
     this.init = init || {}
 
     this.cache = cache
+    this.shortTtl = shortTtl
 
     if (!this.init.headers) this.init.headers = {}
   }
@@ -173,12 +181,15 @@ export class HttpClient {
       if (cacheHeader !== 'no-store') {
         response.headers['X-Cache-Date'] = new Date().toUTCString()
       }
-
-      this.cache?.set(key, {
-        headers: response.headers,
-        body: response.data,
-        status: response.status,
-      })
+      this.cache?.set(
+        key,
+        {
+          headers: response.headers,
+          body: response.data,
+          status: response.status,
+        },
+        this.shortTtl,
+      )
 
       return response
     }

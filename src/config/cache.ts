@@ -44,9 +44,10 @@ const cacheConfig = {
   ],
   cacheTtl: parseInt(process.env.CACHE_TTL) || 604800,
   staleTtl: parseInt(process.env.STALE_TTL) || 60,
+  shortTtl: 30,
   cache: new NodeCache({
-    stdTTL: parseInt(process.env.CACHE_TTL) || 604800,
-    checkperiod: parseInt(process.env.STALE_TTL) || 60,
+    // stdTTL: parseInt(process.env.STD_TTL) || 60 * 5, //5 minutes
+    checkperiod: parseInt(process.env.CACHE_PERIOD) || 30, // 1 minute
   }),
 }
 

@@ -4,12 +4,13 @@ import express, { NextFunction, json, Request, Response } from 'express'
 import cors from 'cors'
 import logger from './utils/logger'
 import helmet from 'helmet'
-import { cacheHandler } from './handlers/cache'
+import { cacheHandler, updateCache } from './handlers/cache'
 import filterBlacklist from './middlewares/contractBlackList'
 import wsMiddleware from './handlers/ws'
 import health from './handlers/health'
 import metricsMiddleware from './middlewares/metrics'
-import { getMetrics } from './handlers/metrics'
+import { getCurrentMetrics, getMetrics } from './handlers/metrics'
+import auth from './middlewares/auth'
 
 const app = express()
 app.use(cors())
@@ -31,7 +32,9 @@ app.use(function(req, _res, next) {
 })
 
 app.get('/utils/health', health)
-app.get('/utils/metrics', getMetrics)
+app.get('/utils/summary', auth, getMetrics)
+app.put('/utils/updatecache', auth, updateCache)
+app.get('/utils/metrics', auth, getCurrentMetrics)
 app.use('/wss', wsMiddleware)
 app.post('/', metricsMiddleware, filterBlacklist, cacheHandler)
 

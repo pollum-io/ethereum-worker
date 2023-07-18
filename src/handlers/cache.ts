@@ -1,5 +1,5 @@
 import { Request, Response } from 'express'
-import { httpConfig, cacheConfig } from '../config'
+import { httpConfig, cacheConfig, appConfig } from '../config'
 import { URL } from 'url'
 import { HttpClient } from '../lib/httpClient'
 import { AxiosResponse } from 'axios'
@@ -17,6 +17,7 @@ export async function cacheHandler(req: Request, res: Response) {
       keepalive: true,
     },
     cacheConfig.cache,
+    cacheConfig.shortTtl,
   )
 
   let response: AxiosResponse | undefined
@@ -51,4 +52,12 @@ export async function cacheHandler(req: Request, res: Response) {
   }
 
   return res.status(response.status).json(response.data)
+}
+
+export function updateCache(req: Request, res: Response) {
+  const { cacheTtl } = req.query
+
+  cacheConfig.shortTtl = parseInt(cacheTtl.toString(), 10) || 30
+
+  return res.status(201).send()
 }
