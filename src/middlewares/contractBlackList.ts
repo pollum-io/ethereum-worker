@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express'
 import logger from '../utils/logger'
-import blackList from '../config/blacklist'
+import { blacklistConfig } from '../config'
 
 async function filterBlacklist(
   req: Request,
@@ -8,12 +8,7 @@ async function filterBlacklist(
   next: NextFunction,
 ) {
   const stringBody = JSON.stringify(req.body).toLowerCase()
-  let blocked = false
-  blackList.forEach(function(contract) {
-    if (stringBody.includes(contract.toLowerCase())) {
-      blocked = true
-    }
-  })
+  let blocked = blacklistConfig.blacklist.isBlacklisted(stringBody)
 
   if (blocked) {
     res.status(401).send()

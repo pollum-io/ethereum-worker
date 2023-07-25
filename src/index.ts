@@ -11,6 +11,7 @@ import health from './handlers/health'
 import metricsMiddleware from './middlewares/metrics'
 import { getCurrentMetrics, getMetrics } from './handlers/metrics'
 import auth from './middlewares/auth'
+import { addToBlacklist, removeFromBlacklist } from './handlers/blacklist'
 
 const app = express()
 app.use(cors())
@@ -32,9 +33,14 @@ app.use(function(req, _res, next) {
 })
 
 app.get('/utils/health', health)
+
 app.get('/utils/summary', auth, getMetrics)
-app.put('/utils/updatecache', auth, updateCache)
 app.get('/utils/metrics', auth, getCurrentMetrics)
+app.put('/utils/updatecache', auth, updateCache)
+
+app.put('/utils/blacklist', auth, addToBlacklist)
+app.delete('/utils/blacklist', auth, removeFromBlacklist)
+
 app.use('/wss', wsMiddleware)
 app.post('/', metricsMiddleware, filterBlacklist, cacheHandler)
 

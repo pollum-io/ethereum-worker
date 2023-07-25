@@ -1,3 +1,7 @@
-const blackList = []
+import { Blacklist } from '../lib/blacklist'
 
-export default blackList
+const confBlacklist = {
+  blacklist: new Blacklist(),
+}
+
+export default confBlacklist
