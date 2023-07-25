@@ -1,6 +1,6 @@
 import { createProxyMiddleware } from 'http-proxy-middleware'
 import { parseFrame } from '../lib/inflate'
-import blackList from '../config/blacklist'
+import { blacklistConfig } from '../config'
 import logger from '../utils/logger'
 import { LogProviderCallback } from 'http-proxy-middleware/dist/types'
 import wsConfig from '../config/ws'
@@ -24,11 +24,12 @@ const wsMiddleware = createProxyMiddleware({
       const inflatedMessage = parseFrame(d)
       if (inflatedMessage) {
         const message = inflatedMessage.toLowerCase()
-        for (var i in blackList) {
-          if (message.includes(blackList[i].toLocaleLowerCase())) {
-            socket.end()
-            proxyReq.socket?.end()
-          }
+
+        const blocked = blacklistConfig.blacklist.isBlacklisted(message)
+
+        if (blocked) {
+          socket.end()
+          proxyReq.socket?.end()
         }
       }
     })
