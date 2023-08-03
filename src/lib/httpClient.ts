@@ -175,6 +175,22 @@ export class HttpClient {
         status: cachedResponse.status,
       } as AxiosResponse
     } else {
+      let bodyInjected = await this.injectBlockHash('0x0', body, true)
+
+      if (!bodyInjected) {
+        return {
+          data: {
+            jsonrpc: '2.0',
+            id: 1,
+            error: {
+              code: -32001,
+              message: 'Resource not found',
+            },
+          },
+          status: 200,
+        } as AxiosResponse
+      }
+
       let response = await axios.post(path, body, init_)
 
       response.headers['Cache-Control'] = cacheHeader
@@ -193,6 +209,34 @@ export class HttpClient {
 
       return response
     }
+  }
+
+  private async injectBlockHash(
+    blockHash: string,
+    body: Record<string, any>,
+    requireCanonical: boolean = false,
+  ): Promise<Record<string, any> | undefined> {
+    if (!body.params || !Array.isArray(body.params) || body.params.length < 3) {
+      return
+    }
+
+    const lastParam = body.params[body.params.length - 1]
+
+    if (
+      lastParam &&
+      typeof lastParam === 'object' &&
+      lastParam.hasOwnProperty('blockHash')
+    ) {
+      lastParam.blockHash = blockHash
+      lastParam.requireCanonical = requireCanonical
+    } else {
+      body.params.push({
+        blockHash: blockHash,
+        requireCanonical: requireCanonical,
+      })
+    }
+
+    return body
   }
 }
 
