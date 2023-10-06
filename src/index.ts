@@ -12,6 +12,8 @@ import metricsMiddleware from './middlewares/metrics'
 import { getCurrentMetrics, getMetrics } from './handlers/metrics'
 import auth from './middlewares/auth'
 import { addToBlacklist, removeFromBlacklist } from './handlers/blacklist'
+import limiter from './middlewares/limiter'
+import { createKey } from './handlers/apiGateway'
 
 const app = express()
 app.use(cors())
@@ -34,9 +36,11 @@ app.use(function(req, _res, next) {
 
 app.get('/utils/health', health)
 
+app.use(limiter)
 app.get('/utils/summary', auth, getMetrics)
 app.get('/utils/metrics', auth, getCurrentMetrics)
 app.put('/utils/updatecache', auth, updateCache)
+app.post('/utils/createkey', auth, createKey)
 
 app.put('/utils/blacklist', auth, addToBlacklist)
 app.delete('/utils/blacklist', auth, removeFromBlacklist)
