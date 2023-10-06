@@ -15,7 +15,7 @@ async function getLimitByKey(req: Request, res: Response): Promise<number> {
         case 'premium':
           return 1000
         default:
-          return 100
+          return 10
       }
     }
   }
