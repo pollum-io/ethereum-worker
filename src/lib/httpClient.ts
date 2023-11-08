@@ -14,7 +14,7 @@ export class HttpClient {
   private readonly url: URL
   private readonly init: RequestInit
   private readonly cache?: NodeCache
-  private readonly shortTtl: number = 30
+  private readonly shortTtl: number = 2
   /**
    * Creates a new HttpClient.
    *

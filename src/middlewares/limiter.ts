@@ -11,11 +11,9 @@ async function getLimitByKey(req: Request, res: Response): Promise<number> {
       const userData = auth.checkKey(parts[1])
       switch (userData?.role) {
         case 'partner':
-          return 100000
-        case 'premium':
-          return 1000
+          return 9999999
         default:
-          return 10
+          return 6000
       }
     }
   }
@@ -23,7 +21,7 @@ async function getLimitByKey(req: Request, res: Response): Promise<number> {
 }
 
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 1 * 60 * 1000, // 1 minutes
   limit: getLimitByKey,
   standardHeaders: 'draft-7', // draft-6: `RateLimit-*` headers; draft-7: combined `RateLimit` header
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
