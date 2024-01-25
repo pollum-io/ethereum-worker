@@ -21,22 +21,27 @@ const wsMiddleware = createProxyMiddleware({
   ws: true,
   onProxyReqWs: (proxyReq, req, socket, options, head) => {
     socket.on('data', d => {
-      const inflatedMessage = parseFrame(d)
-      if (inflatedMessage) {
-        const message = inflatedMessage.toLowerCase()
+      try {
+        const inflatedMessage = parseFrame(d)
+        if (inflatedMessage) {
+          const message = inflatedMessage.toLowerCase()
 
-        const blocked = blacklistConfig.blacklist.isBlacklisted(message)
+          const blocked = blacklistConfig.blacklist.isBlacklisted(message)
 
-        if (blocked) {
-          socket.end()
-          proxyReq.socket?.end()
+          if (blocked) {
+            socket.end()
+            proxyReq.socket?.end()
+          }
         }
+      } catch (err) {
+        socket.end()
+        proxyReq.socket?.end()
       }
     })
   },
   logProvider,
   pathRewrite: {
-    '/wss*': '/',
+    '/wss*': '/wss',
   },
 })
 

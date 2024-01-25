@@ -17,7 +17,7 @@ async function getLimitByKey(req: Request, res: Response): Promise<number> {
       }
     }
   }
-  return 100
+  return 6000
 }
 
 const limiter = rateLimit({
