@@ -12,7 +12,7 @@ export class Metrics {
   private readonly interval: number
   private lastHitsCount: number
   private lastStats: NodeCache.Stats & { datetime: Date }
-  private readonly periodsPerDay: number
+  private readonly periods: number
   private readonly jobs?: NodeJS.Timeout[] = []
   private methodsCount: Record<string, number> = {}
 
@@ -30,14 +30,16 @@ export class Metrics {
       vsize: 0,
     }
 
-    const totalMillisecondsInDay = period * 1000
-    this.periodsPerDay = Math.floor(totalMillisecondsInDay / this.interval)
+    // period = 24*60*60 => 1 day
+    // period = 24*60*60*30 => 30 days
+    const totalMilliseconds = (period || 24 * 60 * 60) * 1000
+    this.periods = Math.floor(totalMilliseconds / this.interval)
 
     if (this.cache) {
-      // Alloc buffer for 24 hours (each int will consume 4 bytes)
-      this.status['cacheHits'] = Buffer.alloc(this.periodsPerDay * 4)
+      // Alloc buffer for the number of hours (each int will consume 4 bytes)
+      this.status['cacheHits'] = Buffer.alloc(this.periods * 4, 0)
     }
-    this.status['requests'] = Buffer.alloc(this.periodsPerDay * 4)
+    this.status['requests'] = Buffer.alloc(this.periods * 4, 0)
 
     this.jobs.push(
       setInterval(() => {
@@ -48,7 +50,7 @@ export class Metrics {
       }, this.interval),
     )
 
-    // Daily flush
+    // Daily flush the request methods count
     this.jobs.push(
       setInterval(() => {
         logger.debug('FLUSHING METHODS COUNT')
@@ -112,10 +114,10 @@ export class Metrics {
     const hits = this.toArray(this.status.cacheHits)
     const time = new Date()
 
-    time.setMilliseconds(-this.periodsPerDay * this.interval)
+    time.setMilliseconds(-this.periods * this.interval)
 
     const times = [time.toISOString()]
-    for (let i = 1; i < this.periodsPerDay; i++) {
+    for (let i = 1; i < this.periods; i++) {
       time.setMilliseconds(this.interval)
       times.push(time.toISOString())
     }
